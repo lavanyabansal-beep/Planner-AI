@@ -8,10 +8,12 @@ import TaskCard from './TaskCard';
 const BoardView = ({ 
   buckets, 
   tasks, 
+  users = [],
   onCreateBucket, 
   onUpdateBucket, 
   onDeleteBucket,
   onCreateTask,
+  onUpdateTask,
   onMoveTask,
   onTaskClick,
   getTasksByBucket
@@ -61,17 +63,19 @@ const BoardView = ({
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="h-full overflow-x-auto overflow-y-hidden">
-        <div className="flex gap-6 p-6 h-full items-start">
+      <div className="h-full overflow-x-auto overflow-y-hidden scrollbar-thin">
+        <div className="flex gap-6 p-4 sm:p-6 h-full items-start min-w-min">
           <SortableContext items={buckets.map(b => b._id)} strategy={horizontalListSortingStrategy}>
             {buckets.map(bucket => (
               <Bucket
                 key={bucket._id}
                 bucket={bucket}
                 tasks={getTasksByBucket(bucket._id)}
+                users={users}
                 onAddTask={onCreateTask}
                 onDeleteBucket={onDeleteBucket}
                 onUpdateBucket={onUpdateBucket}
+                onUpdateTask={onUpdateTask}
                 onTaskClick={onTaskClick}
               />
             ))}
@@ -83,7 +87,7 @@ const BoardView = ({
 
       <DragOverlay>
         {activeTask ? (
-          <div className="rotate-3 opacity-90">
+          <div className="rotate-2 opacity-90 cursor-grabbing">
             <TaskCard task={activeTask} />
           </div>
         ) : null}

@@ -1,4 +1,4 @@
-import { getInitials } from '../../utils/helpers';
+import { getInitials, getAvatarColor } from '../../utils/helpers';
 
 const Avatar = ({ user, size = 'md', className = '' }) => {
   const sizes = {
@@ -8,12 +8,13 @@ const Avatar = ({ user, size = 'md', className = '' }) => {
     xl: 'w-12 h-12 text-lg',
   };
   
-  const bgColor = user?.avatarColor || 'bg-primary-500';
-  const initials = user ? getInitials(user.name) : '??';
+  // Generate a consistent color based on user ID or name if no avatarColor provided
+  const bgColor = user?.avatarColor || getAvatarColor(user?._id || user?.name || 0);
+  const initials = user ? getInitials(user.name) : '?';
   
   return (
     <div 
-      className={`${sizes[size]} ${bgColor} rounded-full flex items-center justify-center text-white font-semibold ${className}`}
+      className={`${sizes[size]} ${bgColor} rounded-full flex items-center justify-center text-white font-semibold shadow-sm ${className}`}
       title={user?.name}
     >
       {initials}

@@ -5,7 +5,7 @@ export const getInitials = (name) => {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 };
 
-export const getAvatarColor = (index) => {
+export const getAvatarColor = (identifier) => {
   const colors = [
     'bg-blue-500',
     'bg-purple-500',
@@ -18,7 +18,18 @@ export const getAvatarColor = (index) => {
     'bg-orange-500',
     'bg-cyan-500',
   ];
-  return colors[index % colors.length];
+  
+  // Generate a consistent index based on the identifier
+  if (typeof identifier === 'string') {
+    // Hash the string to get a number
+    let hash = 0;
+    for (let i = 0; i < identifier.length; i++) {
+      hash = identifier.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return colors[Math.abs(hash) % colors.length];
+  }
+  
+  return colors[Math.abs(identifier || 0) % colors.length];
 };
 
 export const formatDate = (date) => {
@@ -40,6 +51,16 @@ export const getPriorityColor = (priority) => {
     important: 'text-orange-600 bg-orange-50',
     medium: 'text-blue-600 bg-blue-50',
     low: 'text-gray-600 bg-gray-50',
+  };
+  return colors[priority] || colors.medium;
+};
+
+export const getPriorityColorDark = (priority) => {
+  const colors = {
+    urgent: 'text-red-200 bg-red-500/20 border border-red-500/30',
+    important: 'text-orange-200 bg-orange-500/20 border border-orange-500/30',
+    medium: 'text-blue-200 bg-blue-500/20 border border-blue-500/30',
+    low: 'text-gray-300 bg-gray-600/50 border border-gray-500/30',
   };
   return colors[priority] || colors.medium;
 };

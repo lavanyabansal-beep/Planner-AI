@@ -47,34 +47,32 @@ const AddMemberModal = ({ isOpen, onClose, onMemberAdded }) => {
     <Modal isOpen={isOpen} onClose={onClose} title="Add Team Member" size="sm">
       <form onSubmit={handleSubmit} className="p-6 space-y-4">
         {error && (
-          <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm">
+          <div className="p-3 bg-danger-500/20 text-danger-300 rounded-lg text-sm border border-danger-500/30">
             {error}
           </div>
         )}
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Name *
-          </label>
           <Input
+            label="Name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="John Doe"
             disabled={loading}
             required
+            className="bg-gray-900 border-gray-600 text-white placeholder:text-gray-500"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Email
-          </label>
           <Input
             type="email"
+            label="Email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="john@example.com"
             disabled={loading}
+            className="bg-gray-900 border-gray-600 text-white placeholder:text-gray-500"
           />
         </div>
 

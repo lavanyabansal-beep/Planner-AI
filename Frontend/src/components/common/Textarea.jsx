@@ -5,18 +5,50 @@ const Textarea = ({
   className = '',
   rows = 3,
   disabled = false,
-  name
+  required = false,
+  name,
+  id,
+  label,
+  error,
+  ariaLabel,
+  maxLength,
 }) => {
+  const textareaId = id || name;
+  
   return (
-    <textarea
-      name={name}
-      value={value}
-      onChange={onChange}
-      placeholder={placeholder}
-      disabled={disabled}
-      rows={rows}
-      className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors resize-none ${className}`}
-    />
+    <div className="w-full">
+      {label && (
+        <label htmlFor={textareaId} className="form-label">
+          {label}
+          {required && <span className="text-danger-500 ml-1" aria-label="required">*</span>}
+        </label>
+      )}
+      <textarea
+        id={textareaId}
+        name={name}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        disabled={disabled}
+        required={required}
+        rows={rows}
+        maxLength={maxLength}
+        aria-label={ariaLabel || label}
+        aria-invalid={error ? 'true' : 'false'}
+        aria-describedby={error ? `${textareaId}-error` : undefined}
+        className={`form-input resize-none ${error ? 'border-danger-500 focus:ring-danger-500' : ''} ${className}`}
+      />
+      {maxLength && (
+        <p className="mt-1.5 text-xs text-gray-500 text-right">
+          {value?.length || 0} / {maxLength}
+        </p>
+      )}
+      {error && (
+        <p id={`${textareaId}-error`} className="mt-1.5 text-sm text-danger-600" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
   );
 };
 

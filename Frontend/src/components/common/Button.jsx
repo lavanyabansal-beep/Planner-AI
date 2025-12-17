@@ -5,15 +5,19 @@ const Button = ({
   size = 'md', 
   disabled = false,
   className = '',
-  type = 'button'
+  type = 'button',
+  ariaLabel,
+  icon,
+  fullWidth = false,
 }) => {
-  const baseStyles = 'font-medium rounded-lg transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
+  const baseStyles = 'inline-flex items-center justify-center gap-2 font-medium rounded-lg transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 disabled:opacity-60 disabled:cursor-not-allowed disabled:shadow-none';
   
   const variants = {
-    primary: 'bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500 shadow-sm',
-    secondary: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus:ring-primary-500 shadow-sm',
-    danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 shadow-sm',
-    ghost: 'text-gray-700 hover:bg-gray-100 focus:ring-gray-500',
+    primary: 'bg-gradient-to-r from-primary-600 to-purple-600 text-white hover:from-primary-700 hover:to-purple-700 active:from-primary-800 active:to-purple-800 focus:ring-primary-500 shadow-lg shadow-primary-500/30 hover:shadow-xl hover:shadow-primary-500/40 disabled:hover:from-primary-600 disabled:hover:to-purple-600',
+    secondary: 'bg-gray-700 text-gray-100 border border-gray-600 hover:bg-gray-600 active:bg-gray-500 focus:ring-primary-500 shadow-sm hover:shadow disabled:hover:bg-gray-700',
+    danger: 'bg-gradient-to-r from-danger-600 to-orange-600 text-white hover:from-danger-700 hover:to-orange-700 active:from-danger-800 active:to-orange-800 focus:ring-danger-500 shadow-lg shadow-danger-500/30 hover:shadow-xl hover:shadow-danger-500/40 disabled:hover:from-danger-600 disabled:hover:to-orange-600',
+    ghost: 'text-gray-300 hover:bg-gray-700 active:bg-gray-600 focus:ring-gray-500',
+    success: 'bg-gradient-to-r from-success-600 to-emerald-600 text-white hover:from-success-700 hover:to-emerald-700 active:from-success-800 active:to-emerald-800 focus:ring-success-500 shadow-lg shadow-success-500/30 hover:shadow-xl hover:shadow-success-500/40 disabled:hover:from-success-600 disabled:hover:to-emerald-600',
   };
   
   const sizes = {
@@ -27,8 +31,10 @@ const Button = ({
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`}
+      aria-label={ariaLabel}
+      className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${fullWidth ? 'w-full' : ''} ${className}`}
     >
+      {icon && <span className="flex-shrink-0">{icon}</span>}
       {children}
     </button>
   );

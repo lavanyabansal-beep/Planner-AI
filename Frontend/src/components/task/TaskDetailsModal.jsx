@@ -129,28 +129,32 @@ const TaskDetailsModal = ({ isOpen, onClose, task, users, onUpdate, onDelete }) 
       <div className="p-6 space-y-6">
         {/* Title */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Task Name</label>
           <Input
+            label="Task Name"
             value={formData.title}
             onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-            placeholder="Task name"
+            placeholder="Enter task name"
+            required
+            className="bg-gray-900 border-gray-600 text-white placeholder:text-gray-500"
           />
         </div>
 
         {/* Description */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
           <Textarea
+            label="Description"
             value={formData.description}
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-            placeholder="Add a description..."
+            placeholder="Add a detailed description..."
             rows={4}
+            maxLength={500}
+            className="bg-gray-900 border-gray-600 text-white placeholder:text-gray-500"
           />
         </div>
 
         {/* Assigned Members */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Assigned To</label>
+          <label className="form-label">Assigned To</label>
           <div className="flex items-center gap-3">
             <MemberPicker
               users={users}
@@ -158,19 +162,22 @@ const TaskDetailsModal = ({ isOpen, onClose, task, users, onUpdate, onDelete }) 
               onChange={(selected) => setFormData({ ...formData, assignedTo: selected })}
             />
             {formData.assignedTo.length > 0 && (
-              <AvatarGroup users={formData.assignedTo} max={5} />
+              <div className="flex-1">
+                <AvatarGroup users={formData.assignedTo} max={6} />
+              </div>
             )}
           </div>
         </div>
 
         {/* Priority & Progress */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+            <label htmlFor="priority" className="form-label">Priority</label>
             <select
+              id="priority"
               value={formData.priority}
               onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="form-select"
             >
               <option value="low">Low</option>
               <option value="medium">Medium</option>
@@ -180,11 +187,12 @@ const TaskDetailsModal = ({ isOpen, onClose, task, users, onUpdate, onDelete }) 
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Progress</label>
+            <label htmlFor="progress" className="form-label">Progress</label>
             <select
+              id="progress"
               value={formData.progress}
               onChange={(e) => setFormData({ ...formData, progress: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="form-select"
             >
               <option value="not_started">Not Started</option>
               <option value="in_progress">In Progress</option>
@@ -194,45 +202,44 @@ const TaskDetailsModal = ({ isOpen, onClose, task, users, onUpdate, onDelete }) 
         </div>
 
         {/* Dates */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-            <Input
-              type="date"
-              value={formData.startDate}
-              onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
-            <Input
-              type="date"
-              value={formData.dueDate}
-              onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-            />
-          </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Input
+            type="date"
+            label="Start Date"
+            value={formData.startDate}
+            onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+            className="bg-gray-900 border-gray-600 text-white"
+          />
+          <Input
+            type="date"
+            label="Due Date"
+            value={formData.dueDate}
+            onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+            className="bg-gray-900 border-gray-600 text-white"
+          />
         </div>
 
         {/* Checklist */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Checklist</label>
+          <label className="form-label">Checklist</label>
           <div className="space-y-2">
             {formData.checklist.map((item, index) => (
-              <div key={index} className="flex items-center gap-2 bg-gray-50 p-2 rounded-lg">
+              <div key={index} className="flex items-center gap-3 bg-gray-900/50 p-3 rounded-lg hover:bg-gray-900/70 transition-colors group border border-gray-700">
                 <input
                   type="checkbox"
                   checked={item.done}
                   onChange={() => toggleChecklistItem(index)}
-                  className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                  className="w-4 h-4 text-primary-600 bg-gray-800 border-gray-600 rounded focus:ring-primary-500 cursor-pointer"
+                  aria-label={`Mark "${item.text}" as ${item.done ? 'incomplete' : 'complete'}`}
                 />
-                <span className={`flex-1 text-sm ${item.done ? 'line-through text-gray-500' : 'text-gray-900'}`}>
+                <span className={`flex-1 text-sm ${item.done ? 'line-through text-gray-500' : 'text-gray-200'}`}>
                   {item.text}
                 </span>
                 <button
                   type="button"
                   onClick={() => removeChecklistItem(index)}
-                  className="text-gray-400 hover:text-red-600"
+                  className="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-danger-400 transition-all p-1 rounded hover:bg-gray-800"
+                  aria-label={`Remove "${item.text}" from checklist`}
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -240,46 +247,57 @@ const TaskDetailsModal = ({ isOpen, onClose, task, users, onUpdate, onDelete }) 
                 </button>
               </div>
             ))}
+            {formData.checklist.length === 0 && (
+              <p className="text-sm text-gray-500 text-center py-4">No checklist items yet</p>
+            )}
             <form onSubmit={handleAddChecklistItem} className="flex gap-2">
               <Input
                 value={newChecklistItem}
                 onChange={(e) => setNewChecklistItem(e.target.value)}
                 placeholder="Add checklist item"
-                className="flex-1"
+                className="flex-1 bg-gray-900 border-gray-600 text-white placeholder:text-gray-500"
+                ariaLabel="New checklist item"
               />
-              <Button type="submit" size="sm">Add</Button>
+              <Button type="submit" size="sm" disabled={!newChecklistItem.trim()}>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+              </Button>
             </form>
           </div>
         </div>
 
         {/* Attachments */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Attachments</label>
-          <div className="space-y-2">
+          <label className="form-label">Attachments</label>
+          <div className="space-y-3">
             {formData.attachments.map((attachment, index) => (
-              <div key={index} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
-                <div className="flex items-center gap-3">
-                  <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                  </svg>
-                  <div>
-                    <div className="text-sm font-medium text-gray-900">{attachment.name}</div>
+              <div key={index} className="flex items-center justify-between bg-gray-900/50 p-3 rounded-lg hover:bg-gray-900/70 transition-colors group border border-gray-700">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className="flex-shrink-0 w-10 h-10 bg-primary-500/20 rounded-lg flex items-center justify-center border border-primary-500/30">
+                    <svg className="w-5 h-5 text-primary-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                    </svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-gray-200 truncate">{attachment.name}</div>
                     <div className="text-xs text-gray-500">{attachment.size}</div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-shrink-0">
                   <a
                     href={attachment.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-primary-600 hover:text-primary-700 text-sm font-medium"
+                    className="text-primary-400 hover:text-primary-300 text-sm font-medium px-3 py-1.5 rounded-lg hover:bg-primary-500/10 transition-colors"
                   >
                     Download
                   </a>
                   <button
                     type="button"
                     onClick={() => removeAttachment(index)}
-                    className="text-gray-400 hover:text-red-600"
+                    className="text-gray-500 hover:text-danger-400 p-1.5 rounded-lg hover:bg-gray-800 transition-all"
+                    aria-label={`Remove ${attachment.name}`}
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -288,6 +306,9 @@ const TaskDetailsModal = ({ isOpen, onClose, task, users, onUpdate, onDelete }) 
                 </div>
               </div>
             ))}
+            {formData.attachments.length === 0 && (
+              <p className="text-sm text-gray-500 text-center py-4">No attachments yet</p>
+            )}
             <label className="block">
               <input
                 type="file"
@@ -295,38 +316,40 @@ const TaskDetailsModal = ({ isOpen, onClose, task, users, onUpdate, onDelete }) 
                 disabled={uploading}
                 className="hidden"
               />
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center cursor-pointer hover:border-primary-500 transition-colors">
+              <div className="border-2 border-dashed border-gray-700 rounded-xl p-6 text-center cursor-pointer hover:border-primary-500 hover:bg-primary-500/5 transition-all group">
                 {uploading ? (
-                  <span className="text-sm text-gray-500">Uploading...</span>
+                  <div className="flex items-center justify-center gap-2">
+                    <div className="w-5 h-5 border-2 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+                    <span className="text-sm text-gray-400">Uploading...</span>
+                  </div>
                 ) : (
-                  <span className="text-sm text-gray-600">Click to upload file</span>
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="w-12 h-12 bg-gray-800 group-hover:bg-primary-500/10 rounded-xl flex items-center justify-center transition-colors border border-gray-700 group-hover:border-primary-500/30">
+                      <svg className="w-6 h-6 text-gray-500 group-hover:text-primary-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                      </svg>
+                    </div>
+                    <div>
+                      <span className="text-sm font-medium text-gray-300 group-hover:text-primary-400 transition-colors">Click to upload</span>
+                      <p className="text-xs text-gray-500 mt-1">or drag and drop</p>
+                    </div>
+                  </div>
                 )}
               </div>
             </label>
           </div>
         </div>
 
-        {/* Completed Toggle */}
-        <div className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={formData.completed}
-            onChange={(e) => setFormData({ ...formData, completed: e.target.checked })}
-            className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
-          />
-          <label className="text-sm font-medium text-gray-700">Mark as completed</label>
-        </div>
-
         {/* Actions */}
-        <div className="flex justify-between pt-4 border-t border-gray-200">
-          <Button onClick={handleDelete} variant="danger">
+        <div className="flex flex-col sm:flex-row justify-between gap-3 pt-4 border-t border-gray-700">
+          <Button onClick={handleDelete} variant="danger" fullWidth className="sm:w-auto">
             Delete Task
           </Button>
           <div className="flex gap-3">
-            <Button onClick={onClose} variant="secondary">
+            <Button onClick={onClose} variant="secondary" fullWidth className="sm:w-auto flex-1 sm:flex-initial">
               Cancel
             </Button>
-            <Button onClick={handleSave}>
+            <Button onClick={handleSave} variant="primary" fullWidth className="sm:w-auto flex-1 sm:flex-initial">
               Save Changes
             </Button>
           </div>

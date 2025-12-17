@@ -6,19 +6,48 @@ const Input = ({
   className = '',
   disabled = false,
   required = false,
-  name
+  name,
+  id,
+  label,
+  error,
+  autoFocus = false,
+  onBlur,
+  onKeyDown,
+  ariaLabel,
 }) => {
+  const inputId = id || name;
+  
   return (
-    <input
-      type={type}
-      name={name}
-      value={value}
-      onChange={onChange}
-      placeholder={placeholder}
-      disabled={disabled}
-      required={required}
-      className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors ${className}`}
-    />
+    <div className="w-full">
+      {label && (
+        <label htmlFor={inputId} className="form-label">
+          {label}
+          {required && <span className="text-danger-500 ml-1" aria-label="required">*</span>}
+        </label>
+      )}
+      <input
+        id={inputId}
+        type={type}
+        name={name}
+        value={value}
+        onChange={onChange}
+        onBlur={onBlur}
+        onKeyDown={onKeyDown}
+        placeholder={placeholder}
+        disabled={disabled}
+        required={required}
+        autoFocus={autoFocus}
+        aria-label={ariaLabel || label}
+        aria-invalid={error ? 'true' : 'false'}
+        aria-describedby={error ? `${inputId}-error` : undefined}
+        className={`form-input ${error ? 'border-danger-500 focus:ring-danger-500' : ''} ${className}`}
+      />
+      {error && (
+        <p id={`${inputId}-error`} className="mt-1.5 text-sm text-danger-600" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
   );
 };
 

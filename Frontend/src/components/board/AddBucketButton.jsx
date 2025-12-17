@@ -32,7 +32,7 @@ const AddBucketButton = ({ onAdd }) => {
     return (
       <button
         onClick={() => setIsAdding(true)}
-        className="flex-shrink-0 w-80 h-full min-h-[200px] bg-white/50 hover:bg-white/70 border-2 border-dashed border-gray-300 rounded-xl flex items-center justify-center text-gray-500 hover:text-gray-700 hover:border-gray-400 transition-all duration-200 group"
+        className="flex-shrink-0 w-80 h-full min-h-[200px] bg-gray-800/40 hover:bg-gray-800/60 border-2 border-dashed border-gray-700 hover:border-primary-500 rounded-2xl flex items-center justify-center text-gray-500 hover:text-primary-400 transition-all duration-200 group backdrop-blur-sm"
       >
         <div className="flex items-center gap-2">
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -45,7 +45,7 @@ const AddBucketButton = ({ onAdd }) => {
   }
 
   return (
-    <div className="flex-shrink-0 w-80 bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+    <div className="flex-shrink-0 w-80 bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-elevated border border-gray-700 p-4">
       <form onSubmit={handleSubmit} className="space-y-3">
         <Input
           value={title}
@@ -53,6 +53,7 @@ const AddBucketButton = ({ onAdd }) => {
           placeholder="Bucket name"
           autoFocus
           disabled={loading}
+          className="bg-gray-900 border-gray-600 text-white placeholder:text-gray-500"
         />
         <div className="flex gap-2">
           <Button type="submit" disabled={loading || !title.trim()} size="sm" className="flex-1">
