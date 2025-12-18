@@ -3,6 +3,58 @@ import { CSS } from '@dnd-kit/utilities';
 import AvatarGroup from '../common/AvatarGroup';
 import { formatDate, getPriorityColorDark } from '../../utils/helpers';
 
+// Activity Type Configuration
+const getActivityConfig = (activityType) => {
+  const type = (activityType || 'Development').toLowerCase();
+  
+  if (type.includes('one-time')) {
+    return {
+      icon: '🎯',
+      color: 'bg-blue-500/20 text-blue-300 border-blue-500/40',
+      label: 'One-Time',
+      description: 'Single execution task'
+    };
+  }
+  
+  if (type.includes('continuous')) {
+    return {
+      icon: '♾️',
+      color: 'bg-green-500/20 text-green-300 border-green-500/40',
+      label: 'Continuous',
+      description: 'Ongoing parallel task'
+    };
+  }
+  
+  if (type.includes('api') || type.includes('1-day')) {
+    return {
+      icon: '⚡',
+      color: 'bg-purple-500/20 text-purple-300 border-purple-500/40',
+      label: 'API/1-Day',
+      description: 'Quick integration task'
+    };
+  }
+  
+  // Map other activity types
+  const typeMap = {
+    'testing': { icon: '🧪', color: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40', label: 'Testing' },
+    'design': { icon: '🎨', color: 'bg-pink-500/20 text-pink-300 border-pink-500/40', label: 'Design' },
+    'documentation': { icon: '📝', color: 'bg-amber-500/20 text-amber-300 border-amber-500/40', label: 'Documentation' },
+    'bug fix': { icon: '🐛', color: 'bg-rose-500/20 text-rose-300 border-rose-500/40', label: 'Bug Fix' },
+    'research': { icon: '🔬', color: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40', label: 'Research' },
+  };
+  
+  for (const [key, config] of Object.entries(typeMap)) {
+    if (type.includes(key)) return { ...config, description: `${config.label} task` };
+  }
+  
+  return {
+    icon: '💻',
+    color: 'bg-blue-500/20 text-blue-300 border-blue-500/40',
+    label: 'Development',
+    description: 'Development task'
+  };
+};
+
 const TaskCard = ({ task, users = [], onClick, onToggleComplete }) => {
   // Populate assigned users with full user objects
   const populatedAssignedTo = (task.assignedTo || []).map(userId => {
@@ -30,6 +82,7 @@ const TaskCard = ({ task, users = [], onClick, onToggleComplete }) => {
   const hasChecklist = task.checklist && task.checklist.length > 0;
   const completedChecklist = task.checklist?.filter(item => item.done).length || 0;
   const totalChecklist = task.checklist?.length || 0;
+  const activityConfig = getActivityConfig(task.activityType);
 
   const handleCheckboxClick = (e) => {
     e.stopPropagation();
@@ -61,6 +114,19 @@ const TaskCard = ({ task, users = [], onClick, onToggleComplete }) => {
       className="bg-gradient-to-br from-gray-700 to-gray-700/80 backdrop-blur-sm rounded-xl border border-gray-600 p-4 hover:shadow-2xl hover:border-primary-500/50 hover:from-gray-700/90 hover:to-gray-700/70 transition-all duration-200 cursor-pointer group focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:ring-offset-gray-800"
     >
       <div className="space-y-3">
+        {/* Activity Type Badge */}
+        <div className="flex items-center gap-2 mb-2">
+          <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border ${activityConfig.color}`} title={activityConfig.description}>
+            <span>{activityConfig.icon}</span>
+            <span>{activityConfig.label}</span>
+          </span>
+          {task.estimatedDays > 0 && (
+            <span className="px-2 py-1 rounded-lg bg-gray-600/50 text-gray-300 text-xs font-medium" title="Estimated Duration">
+              {task.estimatedDays}d
+            </span>
+          )}
+        </div>
+
         {/* Title with Checkbox */}
         <div className="flex items-start gap-3">
           <input

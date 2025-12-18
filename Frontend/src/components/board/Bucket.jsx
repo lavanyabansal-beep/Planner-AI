@@ -10,6 +10,26 @@ const Bucket = ({ bucket, tasks, users = [], onAddTask, onDeleteBucket, onUpdate
   const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState(bucket.title);
   const [showMenu, setShowMenu] = useState(false);
+  const [filterType, setFilterType] = useState('all'); // 'all', 'one-time', 'continuous', 'api'
+
+  // Calculate activity type statistics
+  const activityStats = tasks.reduce((acc, task) => {
+    const type = (task.activityType || 'Development').toLowerCase();
+    if (type.includes('one-time')) acc.oneTime++;
+    else if (type.includes('continuous')) acc.continuous++;
+    else if (type.includes('api') || type.includes('1-day')) acc.api++;
+    else acc.other++;
+    return acc;
+  }, { oneTime: 0, continuous: 0, api: 0, other: 0 });
+
+  // Filter tasks based on selected filter
+  const filteredTasks = filterType === 'all' ? tasks : tasks.filter(task => {
+    const type = (task.activityType || '').toLowerCase();
+    if (filterType === 'one-time') return type.includes('one-time');
+    if (filterType === 'continuous') return type.includes('continuous');
+    if (filterType === 'api') return type.includes('api') || type.includes('1-day');
+    return true;
+  });
 
   const {
     attributes,
@@ -147,11 +167,73 @@ const Bucket = ({ bucket, tasks, users = [], onAddTask, onDeleteBucket, onUpdate
             </>
           )}
         </div>
+        
+        {/* Activity Type Filter */}
+        {tasks.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            <button
+              onClick={() => setFilterType('all')}
+              className={`px-2 py-1 rounded text-xs font-medium transition-all ${
+                filterType === 'all'
+                  ? 'bg-primary-500 text-white'
+                  : 'bg-gray-700/50 text-gray-400 hover:bg-gray-700 hover:text-gray-300'
+              }`}
+            >
+              All ({tasks.length})
+            </button>
+            {activityStats.oneTime > 0 && (
+              <button
+                onClick={() => setFilterType('one-time')}
+                className={`px-2 py-1 rounded text-xs font-medium transition-all ${
+                  filterType === 'one-time'
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-blue-500/10 text-blue-300 hover:bg-blue-500/20'
+                }`}
+              >
+                🎯 {activityStats.oneTime}
+              </button>
+            )}
+            {activityStats.continuous > 0 && (
+              <button
+                onClick={() => setFilterType('continuous')}
+                className={`px-2 py-1 rounded text-xs font-medium transition-all ${
+                  filterType === 'continuous'
+                    ? 'bg-green-500 text-white'
+                    : 'bg-green-500/10 text-green-300 hover:bg-green-500/20'
+                }`}
+              >
+                ♾️ {activityStats.continuous}
+              </button>
+            )}
+            {activityStats.api > 0 && (
+              <button
+                onClick={() => setFilterType('api')}
+                className={`px-2 py-1 rounded text-xs font-medium transition-all ${
+                  filterType === 'api'
+                    ? 'bg-purple-500 text-white'
+                    : 'bg-purple-500/10 text-purple-300 hover:bg-purple-500/20'
+                }`}
+              >
+                ⚡ {activityStats.api}
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Tasks */}
       <div className="flex-1 overflow-y-auto scrollbar-thin p-4 space-y-3 bg-gray-800/30">
-        {tasks.length === 0 ? (
+        {filteredTasks.length === 0 && filterType !== 'all' ? (
+          <div className="text-center py-8 text-gray-500 text-sm">
+            <p>No {filterType} tasks</p>
+            <button
+              onClick={() => setFilterType('all')}
+              className="mt-2 text-primary-400 hover:text-primary-300 text-xs underline"
+            >
+              Show all tasks
+            </button>
+          </div>
+        ) : tasks.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
             <svg className="w-12 h-12 mx-auto mb-2 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -159,7 +241,7 @@ const Bucket = ({ bucket, tasks, users = [], onAddTask, onDeleteBucket, onUpdate
             <p className="text-sm">No tasks yet</p>
           </div>
         ) : (
-          tasks.map(task => (
+          filteredTasks.map(task => (
             <TaskCard 
               key={task._id} 
               task={task}

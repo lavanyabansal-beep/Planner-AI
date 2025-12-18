@@ -20,9 +20,14 @@ const TaskDetailsModal = ({ isOpen, onClose, task, users, onUpdate, onDelete }) 
     checklist: [],
     attachments: [],
     completed: false,
+    activityType: 'One-Time',
+    estimatedDays: 0,
   });
   const [newChecklistItem, setNewChecklistItem] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [activityTypes, setActivityTypes] = useState([]);
+  const [showNewActivityType, setShowNewActivityType] = useState(false);
+  const [newActivityType, setNewActivityType] = useState('');
 
   useEffect(() => {
     if (task) {
@@ -34,18 +39,29 @@ const TaskDetailsModal = ({ isOpen, onClose, task, users, onUpdate, onDelete }) 
         return userId;
       }).filter(Boolean);
 
+      // Auto-set start date to current date if not already set
+      const currentDate = new Date().toISOString().split('T')[0];
+      const startDateValue = task.startDate ? new Date(task.startDate).toISOString().split('T')[0] : currentDate;
+
       setFormData({
         title: task.title || '',
         description: task.description || '',
         assignedTo: populatedAssignedTo,
         priority: task.priority || 'medium',
         progress: task.progress || 'not_started',
-        startDate: task.startDate ? new Date(task.startDate).toISOString().split('T')[0] : '',
+        startDate: startDateValue,
         dueDate: task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : '',
         checklist: task.checklist || [],
         attachments: task.attachments || [],
         completed: task.completed || false,
+        activityType: task.activityType || 'One-Time',
+        estimatedDays: task.estimatedDays || 0,
       });
+
+      // Add task's activity type to list if not already present
+      if (task.activityType && !activityTypes.includes(task.activityType)) {
+        setActivityTypes(prev => [...prev, task.activityType]);
+      }
     }
   }, [task, users]);
 
@@ -56,6 +72,8 @@ const TaskDetailsModal = ({ isOpen, onClose, task, users, onUpdate, onDelete }) 
         assignedTo: formData.assignedTo.map(u => u._id),
         startDate: formData.startDate || undefined,
         dueDate: formData.dueDate || undefined,
+        activityType: formData.activityType,
+        estimatedDays: parseFloat(formData.estimatedDays) || 0,
       });
       onClose();
     } catch (err) {
@@ -95,6 +113,34 @@ const TaskDetailsModal = ({ isOpen, onClose, task, users, onUpdate, onDelete }) 
       ...formData,
       checklist: formData.checklist.filter((_, i) => i !== index),
     });
+  };
+
+  const handleAddActivityType = (e) => {
+    e.preventDefault();
+    const trimmed = newActivityType.trim();
+    if (trimmed && !activityTypes.includes(trimmed)) {
+      setActivityTypes(prev => [...prev, trimmed]);
+      setFormData({ ...formData, activityType: trimmed });
+      setNewActivityType('');
+      setShowNewActivityType(false);
+    }
+  };
+
+  const handleDeleteActivityType = (typeToDelete) => {
+    // Prevent deletion of workflow types
+    const systemTypes = ['One-Time', 'Continuous', 'API / 1-Day'];
+    if (systemTypes.includes(typeToDelete)) {
+      alert('Cannot delete workflow activity types');
+      return;
+    }
+
+    if (confirm(`Delete activity type "${typeToDelete}"?`)) {
+      setActivityTypes(prev => prev.filter(t => t !== typeToDelete));
+      // If the deleted type was selected, switch to One-Time
+      if (formData.activityType === typeToDelete) {
+        setFormData({ ...formData, activityType: 'One-Time' });
+      }
+    }
   };
 
   const handleFileUpload = async (e) => {
@@ -198,6 +244,149 @@ const TaskDetailsModal = ({ isOpen, onClose, task, users, onUpdate, onDelete }) 
               <option value="in_progress">In Progress</option>
               <option value="completed">Completed</option>
             </select>
+          </div>
+        </div>
+
+        {/* Activity Type & Tentative ETA */}
+        <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-lg">
+              {formData.activityType?.toLowerCase().includes('one-time') && '🎯'}
+              {formData.activityType?.toLowerCase().includes('continuous') && '♾️'}
+              {(formData.activityType?.toLowerCase().includes('api') || formData.activityType?.toLowerCase().includes('1-day')) && '⚡'}
+              {!formData.activityType?.toLowerCase().includes('one-time') && 
+               !formData.activityType?.toLowerCase().includes('continuous') && 
+               !formData.activityType?.toLowerCase().includes('api') && 
+               !formData.activityType?.toLowerCase().includes('1-day') && '💻'}
+            </span>
+            <h3 className="font-semibold text-white">Activity Configuration</h3>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label htmlFor="activityType" className="form-label mb-0">Activity Type</label>
+                <button
+                  type="button"
+                  onClick={() => setShowNewActivityType(!showNewActivityType)}
+                  className="text-xs text-primary-400 hover:text-primary-300 font-medium"
+                >
+                  + Add New
+                </button>
+              </div>
+              <select
+                id="activityType"
+                value={formData.activityType}
+                onChange={(e) => {
+                  setFormData({ ...formData, activityType: e.target.value });
+                }}
+                className="form-select w-full"
+              >
+                <optgroup label="Workflow Types">
+                  <option value="One-Time">🎯 One-Time (Sequential)</option>
+                  <option value="Continuous">♾️ Continuous (Parallel)</option>
+                  <option value="API / 1-Day">⚡ API / 1-Day (Quick)</option>
+                </optgroup>
+                {activityTypes.length > 0 && (
+                  <optgroup label="Custom Types">
+                    {activityTypes.filter(t => !['One-Time', 'Continuous', 'API / 1-Day'].includes(t)).map(type => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
+              
+              {/* Activity Type Description */}
+              <div className="mt-2 text-xs text-gray-400">
+                {formData.activityType?.toLowerCase().includes('one-time') && (
+                  <p>⚙️ Runs once, starts after dependencies complete</p>
+                )}
+                {formData.activityType?.toLowerCase().includes('continuous') && (
+                  <p>🔄 Runs in parallel, spans multiple weeks</p>
+                )}
+                {(formData.activityType?.toLowerCase().includes('api') || formData.activityType?.toLowerCase().includes('1-day')) && (
+                  <p>⚡ Short duration, can repeat across weeks</p>
+                )}
+              </div>
+              
+              {showNewActivityType && (
+                <form onSubmit={handleAddActivityType} className="mt-2 flex gap-2">
+                  <input
+                    type="text"
+                    value={newActivityType}
+                    onChange={(e) => setNewActivityType(e.target.value)}
+                    placeholder="Enter new activity type"
+                    className="flex-1 px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white placeholder:text-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    autoFocus
+                  />
+                  <button
+                    type="submit"
+                    className="px-3 py-2 bg-primary-600 text-white rounded-lg text-sm hover:bg-primary-700 transition-colors"
+                  >
+                    Add
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowNewActivityType(false);
+                      setNewActivityType('');
+                    }}
+                    className="px-3 py-2 bg-gray-700 text-white rounded-lg text-sm hover:bg-gray-600 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </form>
+              )}
+              
+              {/* Custom Activity Types Management - ALWAYS VISIBLE */}
+              <div className="mt-4 p-3 bg-gray-900/50 border border-gray-700 rounded-lg">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="text-sm font-semibold text-white">Your Custom Types</h4>
+                  <span className="text-xs text-gray-500">
+                    {activityTypes.filter(t => !['One-Time', 'Continuous', 'API / 1-Day'].includes(t)).length} custom
+                  </span>
+                </div>
+                
+                {activityTypes.filter(t => !['One-Time', 'Continuous', 'API / 1-Day'].includes(t)).length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {activityTypes
+                      .filter(t => !['One-Time', 'Continuous', 'API / 1-Day'].includes(t))
+                      .map(type => (
+                        <button
+                          key={type}
+                          onClick={() => handleDeleteActivityType(type)}
+                          className="group flex items-center gap-2 px-3 py-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 hover:border-red-500/60 rounded-lg text-sm text-red-400 hover:text-red-300 transition-all font-medium"
+                          title={`Click to delete "${type}"`}
+                        >
+                          <span>{type}</span>
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500 italic">No custom activity types yet. Click "+ Add New" above to create one.</p>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="estimatedDays" className="form-label">Tentative ETA (Days)</label>
+              <input
+                id="estimatedDays"
+                type="number"
+                min="0"
+                step="0.5"
+                value={formData.estimatedDays}
+                onChange={(e) => setFormData({ ...formData, estimatedDays: e.target.value })}
+                className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                placeholder="0"
+              />
+              <p className="mt-1 text-xs text-gray-400">
+                📊 Used for Gantt chart timeline calculation
+              </p>
+            </div>
           </div>
         </div>
 
