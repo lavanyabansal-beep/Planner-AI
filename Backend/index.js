@@ -200,8 +200,14 @@ app.post('/api/uploads', upload.single('file'), (req, res) => {
   res.status(201).json(meta)
 })
 
+//chatbot
+const chatbotRoutes = require('./chatbot')
+app.use('/api', chatbotRoutes)
+ 
 // fallback
 app.use((req,res) => res.status(404).json({ error: 'not found' }))
 
 const port = process.env.PORT || 4000
 app.listen(port, () => console.log(`Planner backend running on http://localhost:${port}`))
+
+
