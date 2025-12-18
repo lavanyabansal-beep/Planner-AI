@@ -5,53 +5,59 @@ import { formatDate, getPriorityColorDark } from '../../utils/helpers';
 
 // Activity Type Configuration
 const getActivityConfig = (activityType) => {
-  const type = (activityType || 'Development').toLowerCase();
+  const type = (activityType || '').toUpperCase();
   
-  if (type.includes('one-time')) {
-    return {
+  // Match exact activity type constants from backend
+  const activityMap = {
+    'ONE_TIME': {
       icon: '🎯',
       color: 'bg-blue-500/20 text-blue-300 border-blue-500/40',
       label: 'One-Time',
-      description: 'Single execution task'
-    };
-  }
-  
-  if (type.includes('continuous')) {
-    return {
+      description: 'Standard task with fixed duration'
+    },
+    'CONTINUOUS': {
       icon: '♾️',
       color: 'bg-green-500/20 text-green-300 border-green-500/40',
       label: 'Continuous',
-      description: 'Ongoing parallel task'
-    };
-  }
-  
-  if (type.includes('api') || type.includes('1-day')) {
-    return {
+      description: 'Task that runs until project end'
+    },
+    'API_1_DAY': {
       icon: '⚡',
       color: 'bg-purple-500/20 text-purple-300 border-purple-500/40',
       label: 'API/1-Day',
-      description: 'Quick integration task'
-    };
-  }
-  
-  // Map other activity types
-  const typeMap = {
-    'testing': { icon: '🧪', color: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40', label: 'Testing' },
-    'design': { icon: '🎨', color: 'bg-pink-500/20 text-pink-300 border-pink-500/40', label: 'Design' },
-    'documentation': { icon: '📝', color: 'bg-amber-500/20 text-amber-300 border-amber-500/40', label: 'Documentation' },
-    'bug fix': { icon: '🐛', color: 'bg-rose-500/20 text-rose-300 border-rose-500/40', label: 'Bug Fix' },
-    'research': { icon: '🔬', color: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40', label: 'Research' },
+      description: 'API integration (always 1 day)'
+    },
+    'RECURRING_WEEKLY': {
+      icon: '🔄',
+      color: 'bg-orange-500/20 text-orange-300 border-orange-500/40',
+      label: 'Recurring Weekly',
+      description: 'Task that repeats weekly'
+    },
+    'MILESTONE': {
+      icon: '🏁',
+      color: 'bg-gray-500/20 text-gray-300 border-gray-500/40',
+      label: 'Milestone',
+      description: 'Zero-duration checkpoint'
+    },
+    'BUFFER': {
+      icon: '🛡️',
+      color: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40',
+      label: 'Buffer',
+      description: 'Risk padding for schedule'
+    },
+    'PARALLEL_ALLOWED': {
+      icon: '🔀',
+      color: 'bg-pink-500/20 text-pink-300 border-pink-500/40',
+      label: 'Parallel Allowed',
+      description: 'Can overlap with other tasks'
+    }
   };
   
-  for (const [key, config] of Object.entries(typeMap)) {
-    if (type.includes(key)) return { ...config, description: `${config.label} task` };
-  }
-  
-  return {
-    icon: '💻',
-    color: 'bg-blue-500/20 text-blue-300 border-blue-500/40',
-    label: 'Development',
-    description: 'Development task'
+  return activityMap[type] || {
+    icon: '💼',
+    color: 'bg-gray-500/20 text-gray-300 border-gray-500/40',
+    label: 'Task',
+    description: 'General task'
   };
 };
 

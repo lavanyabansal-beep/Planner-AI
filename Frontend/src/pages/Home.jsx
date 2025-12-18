@@ -21,6 +21,9 @@ const Home = () => {
     const [newBoardTitle, setNewBoardTitle] = useState('');
     const [creatingBoard, setCreatingBoard] = useState(false);
     const [createBoardError, setCreateBoardError] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [boardToDelete, setBoardToDelete] = useState(null);
+  const [deletingBoard, setDeletingBoard] = useState(false);
 
   const {
     board,
@@ -77,6 +80,38 @@ const Home = () => {
         setCreatingBoard(false);
       }
     };
+
+  const handleDeleteBoard = (boardId) => {
+    const board = boards.find(b => b._id === boardId);
+    setBoardToDelete(board);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDeleteBoard = async () => {
+    if (!boardToDelete || deletingBoard) return;
+    
+    setDeletingBoard(true);
+    try {
+      await boardsAPI.delete(boardToDelete._id);
+      
+      // Remove from boards list
+      const updatedBoards = boards.filter(b => b._id !== boardToDelete._id);
+      setBoards(updatedBoards);
+      
+      // If deleted board was selected, switch to first available board
+      if (selectedBoardId === boardToDelete._id) {
+        setSelectedBoardId(updatedBoards.length > 0 ? updatedBoards[0]._id : null);
+      }
+      
+      setShowDeleteConfirm(false);
+      setBoardToDelete(null);
+    } catch (err) {
+      console.error('Failed to delete board:', err);
+      alert(err?.response?.data?.error || err.message || 'Failed to delete board');
+    } finally {
+      setDeletingBoard(false);
+    }
+  };
 
   const handleTaskClick = (task) => {
     setSelectedTask(task);
@@ -149,6 +184,18 @@ const Home = () => {
                     <option key={b._id} value={b._id}>{b.title}</option>
                   ))}
                 </select>
+                {selectedBoardId && boards.length > 0 && (
+                  <button
+                    onClick={() => handleDeleteBoard(selectedBoardId)}
+                    className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                    aria-label="Delete current board"
+                    title="Delete board"
+                  >
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -290,6 +337,54 @@ const Home = () => {
             <Button variant="ghost" onClick={() => setShowCreateBoard(false)} disabled={creatingBoard}>Cancel</Button>
             <Button variant="primary" onClick={handleCreateBoard} disabled={creatingBoard}>
               {creatingBoard ? 'Creating...' : 'Create'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete Board Confirmation Modal */}
+      <Modal
+        isOpen={showDeleteConfirm}
+        onClose={() => {
+          setShowDeleteConfirm(false);
+          setBoardToDelete(null);
+        }}
+        title="Delete Project"
+        size="sm"
+      >
+        <div className="p-6 space-y-4">
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 w-12 h-12 bg-red-500/10 rounded-lg flex items-center justify-center">
+              <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <p className="text-white font-medium mb-2">
+                Are you sure you want to delete <span className="text-primary-400">"{boardToDelete?.title}"</span>?
+              </p>
+              <p className="text-sm text-gray-400">
+                This will permanently delete the project and all its buckets and tasks. This action cannot be undone.
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setShowDeleteConfirm(false);
+                setBoardToDelete(null);
+              }}
+              disabled={deletingBoard}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={confirmDeleteBoard}
+              disabled={deletingBoard}
+            >
+              {deletingBoard ? 'Deleting...' : 'Delete Project'}
             </Button>
           </div>
         </div>

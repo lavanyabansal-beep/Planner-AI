@@ -94,6 +94,37 @@ app.post('/api/boards', async (req, res) => {
   } catch (err) { res.status(400).json({ error: err.message }) }
 })
 
+app.delete('/api/boards/:boardId', async (req, res) => {
+  try {
+    const { boardId } = req.params;
+    
+    // Check if board exists
+    const board = await Board.findById(boardId);
+    if (!board) {
+      return res.status(404).json({ error: 'Board not found' });
+    }
+
+    // Find all buckets for this board
+    const buckets = await Bucket.find({ boardId });
+    const bucketIds = buckets.map(b => b._id);
+
+    // Delete all tasks in those buckets
+    if (bucketIds.length > 0) {
+      await Task.deleteMany({ bucketId: { $in: bucketIds } });
+    }
+
+    // Delete all buckets
+    await Bucket.deleteMany({ boardId });
+
+    // Delete the board
+    await Board.findByIdAndDelete(boardId);
+
+    res.json({ message: 'Board and all associated data deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+})
+
 // All buckets (optionally filter by boardId)
 app.get('/api/buckets', async (req, res) => {
   try {

@@ -10,25 +10,43 @@ const Bucket = ({ bucket, tasks, users = [], onAddTask, onDeleteBucket, onUpdate
   const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState(bucket.title);
   const [showMenu, setShowMenu] = useState(false);
-  const [filterType, setFilterType] = useState('all'); // 'all', 'one-time', 'continuous', 'api'
+  const [filterType, setFilterType] = useState('all'); // 'all', 'ONE_TIME', 'CONTINUOUS', 'API_1_DAY', etc.
 
   // Calculate activity type statistics
   const activityStats = tasks.reduce((acc, task) => {
-    const type = (task.activityType || 'Development').toLowerCase();
-    if (type.includes('one-time')) acc.oneTime++;
-    else if (type.includes('continuous')) acc.continuous++;
-    else if (type.includes('api') || type.includes('1-day')) acc.api++;
-    else acc.other++;
+    const type = (task.activityType || '').toUpperCase();
+    switch (type) {
+      case 'ONE_TIME':
+        acc.oneTime++;
+        break;
+      case 'CONTINUOUS':
+        acc.continuous++;
+        break;
+      case 'API_1_DAY':
+        acc.api++;
+        break;
+      case 'RECURRING_WEEKLY':
+        acc.recurring++;
+        break;
+      case 'MILESTONE':
+        acc.milestone++;
+        break;
+      case 'BUFFER':
+        acc.buffer++;
+        break;
+      case 'PARALLEL_ALLOWED':
+        acc.parallel++;
+        break;
+      default:
+        acc.other++;
+    }
     return acc;
-  }, { oneTime: 0, continuous: 0, api: 0, other: 0 });
+  }, { oneTime: 0, continuous: 0, api: 0, recurring: 0, milestone: 0, buffer: 0, parallel: 0, other: 0 });
 
   // Filter tasks based on selected filter
   const filteredTasks = filterType === 'all' ? tasks : tasks.filter(task => {
-    const type = (task.activityType || '').toLowerCase();
-    if (filterType === 'one-time') return type.includes('one-time');
-    if (filterType === 'continuous') return type.includes('continuous');
-    if (filterType === 'api') return type.includes('api') || type.includes('1-day');
-    return true;
+    const type = (task.activityType || '').toUpperCase();
+    return type === filterType;
   });
 
   const {
@@ -183,9 +201,9 @@ const Bucket = ({ bucket, tasks, users = [], onAddTask, onDeleteBucket, onUpdate
             </button>
             {activityStats.oneTime > 0 && (
               <button
-                onClick={() => setFilterType('one-time')}
+                onClick={() => setFilterType('ONE_TIME')}
                 className={`px-2 py-1 rounded text-xs font-medium transition-all ${
-                  filterType === 'one-time'
+                  filterType === 'ONE_TIME'
                     ? 'bg-blue-500 text-white'
                     : 'bg-blue-500/10 text-blue-300 hover:bg-blue-500/20'
                 }`}
@@ -195,9 +213,9 @@ const Bucket = ({ bucket, tasks, users = [], onAddTask, onDeleteBucket, onUpdate
             )}
             {activityStats.continuous > 0 && (
               <button
-                onClick={() => setFilterType('continuous')}
+                onClick={() => setFilterType('CONTINUOUS')}
                 className={`px-2 py-1 rounded text-xs font-medium transition-all ${
-                  filterType === 'continuous'
+                  filterType === 'CONTINUOUS'
                     ? 'bg-green-500 text-white'
                     : 'bg-green-500/10 text-green-300 hover:bg-green-500/20'
                 }`}
@@ -207,14 +225,62 @@ const Bucket = ({ bucket, tasks, users = [], onAddTask, onDeleteBucket, onUpdate
             )}
             {activityStats.api > 0 && (
               <button
-                onClick={() => setFilterType('api')}
+                onClick={() => setFilterType('API_1_DAY')}
                 className={`px-2 py-1 rounded text-xs font-medium transition-all ${
-                  filterType === 'api'
+                  filterType === 'API_1_DAY'
                     ? 'bg-purple-500 text-white'
                     : 'bg-purple-500/10 text-purple-300 hover:bg-purple-500/20'
                 }`}
               >
                 ⚡ {activityStats.api}
+              </button>
+            )}
+            {activityStats.recurring > 0 && (
+              <button
+                onClick={() => setFilterType('RECURRING_WEEKLY')}
+                className={`px-2 py-1 rounded text-xs font-medium transition-all ${
+                  filterType === 'RECURRING_WEEKLY'
+                    ? 'bg-orange-500 text-white'
+                    : 'bg-orange-500/10 text-orange-300 hover:bg-orange-500/20'
+                }`}
+              >
+                🔄 {activityStats.recurring}
+              </button>
+            )}
+            {activityStats.milestone > 0 && (
+              <button
+                onClick={() => setFilterType('MILESTONE')}
+                className={`px-2 py-1 rounded text-xs font-medium transition-all ${
+                  filterType === 'MILESTONE'
+                    ? 'bg-gray-500 text-white'
+                    : 'bg-gray-500/10 text-gray-300 hover:bg-gray-500/20'
+                }`}
+              >
+                🏁 {activityStats.milestone}
+              </button>
+            )}
+            {activityStats.buffer > 0 && (
+              <button
+                onClick={() => setFilterType('BUFFER')}
+                className={`px-2 py-1 rounded text-xs font-medium transition-all ${
+                  filterType === 'BUFFER'
+                    ? 'bg-yellow-500 text-white'
+                    : 'bg-yellow-500/10 text-yellow-300 hover:bg-yellow-500/20'
+                }`}
+              >
+                🛡️ {activityStats.buffer}
+              </button>
+            )}
+            {activityStats.parallel > 0 && (
+              <button
+                onClick={() => setFilterType('PARALLEL_ALLOWED')}
+                className={`px-2 py-1 rounded text-xs font-medium transition-all ${
+                  filterType === 'PARALLEL_ALLOWED'
+                    ? 'bg-pink-500 text-white'
+                    : 'bg-pink-500/10 text-pink-300 hover:bg-pink-500/20'
+                }`}
+              >
+                🔀 {activityStats.parallel}
               </button>
             )}
           </div>

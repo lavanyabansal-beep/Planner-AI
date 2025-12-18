@@ -33,6 +33,7 @@ export const labelsAPI = {
 export const boardsAPI = {
   getAll: () => api.get('/api/boards').then(res => res.data),
   create: (boardData) => api.post('/api/boards', boardData).then(res => res.data),
+  delete: (boardId) => api.delete(`/api/boards/${boardId}`).then(res => res.data),
 };
 
 // ===== BUCKETS =====
