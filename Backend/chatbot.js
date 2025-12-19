@@ -9,61 +9,93 @@ const User = require('./models/User')
 const router = express.Router()
 
 /* =====================================================
-   🧠 In-memory conversation state (per IP)
+   🧠 In-memory state (undo + context)
 ===================================================== */
 const memory = new Map()
-
 function getCtx(req) {
   if (!memory.has(req.ip)) memory.set(req.ip, {})
   return memory.get(req.ip)
 }
 
-const clean = s =>
-  s.toLowerCase().replace(/[^a-z0-9 ]/g, '').trim()
-
 /* =====================================================
-   🤖 AI intent extractor (SAFE)
+   🤖 PURE LLM BRAIN (FREE MODEL SAFE)
 ===================================================== */
-async function getIntent(message) {
-  try {
-    const res = await axios.post(
-      'https://openrouter.ai/api/v1/chat/completions',
-      {
-        model: 'openai/gpt-5.2',
-        messages: [
-          {
-            role: 'system',
-            content: `
-Return ONLY JSON.
-Intents:
-create_board, add_bucket, add_task,
-add_member,
-delete_board, delete_bucket, delete_task, delete_member
+async function callLLM(message) {
+  const res = await axios.post(
+    'https://openrouter.ai/api/v1/chat/completions',
+    {
+      model: 'openai/gpt-oss-20b:free',
+      messages: [
+        {
+          role: 'system',
+          content: `
+You are an AI project management assistant.
 
-Format:
+Your task:
+- Understand the user's intent
+- Extract required fields from natural language
+- Ask a follow-up question ONLY if required data is missing
+
+REQUIRED FIELDS:
+- create_board → data.title
+- add_bucket → data.title
+- add_task → data.title AND data.bucket
+- add_member → data.name
+- delete → data.type AND data.name
+
+RULES:
+- Respond ONLY in valid JSON
+- Never include markdown or explanations
+- Never leave required fields empty
+- If missing info, set action="none" and ask a clear question in reply
+
+JSON FORMAT:
 {
-  "intent": "",
-  "board": null,
-  "bucket": null,
-  "task": null,
-  "member": null
+  "action": "create_board | add_bucket | add_task | add_member | delete | undo | none",
+  "data": {},
+  "reply": "User-facing response"
+}
+
+EXAMPLES:
+
+User: create a board named abc
+Response:
+{
+  "action": "create_board",
+  "data": { "title": "abc" },
+  "reply": "Board \"abc\" has been created."
+}
+
+User: add task login bug to backend
+Response:
+{
+  "action": "add_task",
+  "data": { "title": "login bug", "bucket": "backend" },
+  "reply": "Task \"login bug\" added to backend."
 }
 `
-          },
-          { role: 'user', content: message }
-        ]
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-          'Content-Type': 'application/json'
-        }
+        },
+        { role: 'user', content: message }
+      ]
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'http://localhost:3000',
+        'X-Title': 'Planner AI'
       }
-    )
+    }
+  )
 
+  try {
     return JSON.parse(res.data.choices[0].message.content)
-  } catch (e) {
-    return {}
+  } catch {
+    return {
+      action: 'none',
+      data: {},
+      reply: 'I could not understand that. Could you rephrase?'
+    }
   }
 }
 
@@ -71,259 +103,138 @@ Format:
    🚀 CHAT ROUTE
 ===================================================== */
 router.post('/chat', async (req, res) => {
-  const { message } = req.body
+  const message = req.body.message
   if (!message) return res.json({ reply: 'Empty message' })
 
   const ctx = getCtx(req)
-  const msg = clean(message)
-  const ai = await getIntent(message)
 
   try {
-    /* ================= UNDO ================= */
-    if (msg === 'undo' && ctx.lastDeleted) {
-      const d = ctx.lastDeleted
+    const ai = await callLLM(message)
+    const action = ai.action || 'none'
+    const data = ai.data || {}
 
-      if (d.type === 'task') await Task.create(d.data)
+    switch (action) {
 
-      if (d.type === 'bucket') {
-        const b = await Bucket.create(d.data)
-        for (const t of d.tasks) {
-          await Task.create({ ...t, bucketId: b._id })
-        }
+      /* ========== CREATE BOARD ========== */
+      case 'create_board': {
+        if (!data.title)
+          return res.json({ reply: ai.reply })
+
+        const board = await Board.create({ title: data.title })
+        ctx.activeBoardId = board._id
+        return res.json({ reply: ai.reply })
       }
 
-      if (d.type === 'board') {
-        const board = await Board.create(d.data)
-        const map = {}
-        for (const b of d.buckets) {
-          const nb = await Bucket.create({ ...b, boardId: board._id })
-          map[b._id] = nb._id
-        }
-        for (const t of d.tasks) {
-          await Task.create({ ...t, bucketId: map[t.bucketId] })
-        }
-      }
+      /* ========== ADD BUCKET ========== */
+      case 'add_bucket': {
+        if (!data.title)
+          return res.json({ reply: ai.reply })
 
-      if (d.type === 'member') await User.create(d.data)
+        const board = ctx.activeBoardId
+          ? await Board.findById(ctx.activeBoardId)
+          : await Board.findOne().sort({ createdAt: -1 })
 
-      ctx.lastDeleted = null
-      return res.json({ reply: 'Undo successful ✅' })
-    }
+        if (!board)
+          return res.json({ reply: 'Please create a board first.' })
 
-    /* ================= CONFIRM DELETE ================= */
-    if (ctx.pendingDelete && (msg === 'yes' || msg === 'no')) {
-      if (msg === 'no') {
-        ctx.pendingDelete = null
-        return res.json({ reply: 'Deletion cancelled.' })
-      }
-
-      const { type, entity } = ctx.pendingDelete
-
-      if (type === 'task') {
-        ctx.lastDeleted = { type, data: entity.toObject() }
-        await Task.deleteOne({ _id: entity._id })
-      }
-
-      if (type === 'bucket') {
-        const tasks = await Task.find({ bucketId: entity._id })
-        ctx.lastDeleted = {
-          type,
-          data: entity.toObject(),
-          tasks: tasks.map(t => t.toObject())
-        }
-        await Task.deleteMany({ bucketId: entity._id })
-        await Bucket.deleteOne({ _id: entity._id })
-      }
-
-      if (type === 'board') {
-        const buckets = await Bucket.find({ boardId: entity._id })
-        const tasks = await Task.find({
-          bucketId: { $in: buckets.map(b => b._id) }
+        await Bucket.create({
+          title: data.title,
+          boardId: board._id
         })
 
-        ctx.lastDeleted = {
-          type,
-          data: entity.toObject(),
-          buckets: buckets.map(b => b.toObject()),
-          tasks: tasks.map(t => t.toObject())
-        }
-
-        await Task.deleteMany({ bucketId: { $in: buckets.map(b => b._id) } })
-        await Bucket.deleteMany({ boardId: entity._id })
-        await Board.deleteOne({ _id: entity._id })
+        return res.json({ reply: ai.reply })
       }
 
-      if (type === 'member') {
-        ctx.lastDeleted = { type, data: entity.toObject() }
-        await User.deleteOne({ _id: entity._id })
-      }
+      /* ========== ADD TASK ========== */
+      case 'add_task': {
+        if (!data.title || !data.bucket)
+          return res.json({ reply: ai.reply })
 
-      ctx.pendingDelete = null
-      return res.json({ reply: `${type} deleted. Say "undo" if needed.` })
-    }
-
-    /* ================= DELETE TYPE FOLLOW-UP ================= */
-    if (
-      ctx.pendingChoices &&
-      ['board', 'bucket', 'task', 'member'].includes(msg)
-    ) {
-      const found = ctx.pendingChoices.find(c => c.type === msg)
-      if (!found) {
-        return res.json({ reply: 'Invalid choice.' })
-      }
-      ctx.pendingDelete = found
-      ctx.pendingChoices = null
-      return res.json({
-        reply: `Are you sure you want to delete this ${found.type}? (yes/no)`
-      })
-    }
-
-    /* ================= CREATE BOARD ================= */
-    if (
-      ai.intent === 'create_board' ||
-      msg.includes('create board') ||
-      msg.includes('make board')
-    ) {
-      const name =
-        ai.board ||
-        message.replace(/create|make|board|called/gi, '').trim()
-
-      if (!name) return res.json({ reply: 'Board name missing.' })
-
-      const board = await Board.create({ title: name })
-      ctx.activeBoardId = board._id   // ✅ FIX ADDED
-
-      return res.json({ reply: `Board "${name}" created ✅` })
-    }
-
-    /* ================= ADD BUCKET (FIXED, NOTHING REMOVED) ================= */
-    if (ai.intent === 'add_bucket' || msg.includes('add bucket')) {
-      const name =
-        ai.bucket ||
-        message.replace(/add|bucket/gi, '').trim()
-
-      const board = ctx.activeBoardId
-        ? await Board.findById(ctx.activeBoardId)
-        : await Board.findOne().sort({ createdAt: -1 })
-
-      if (!board) return res.json({ reply: 'Create a board first.' })
-
-      await Bucket.create({ title: name, boardId: board._id })
-      return res.json({ reply: `Bucket "${name}" added.` })
-    }
-
-    /* ================= ADD TASK ================= */
-    if (ai.intent === 'add_task' || msg.includes('add task')) {
-      let taskName = ai.task
-      let bucketName = ai.bucket
-
-      if (!taskName) {
-        const match = message.match(/add task (.+?)( in | to | under )(.+)/i)
-        if (match) {
-          taskName = match[1].trim()
-          bucketName = match[3].trim()
-        } else {
-          taskName = message.replace(/add|task/gi, '').trim()
-        }
-      }
-
-      let bucket = null
-
-      if (bucketName) {
-        bucket = await Bucket.findOne({
-          title: new RegExp(`^${bucketName}$`, 'i')
+        const bucket = await Bucket.findOne({
+          title: new RegExp('^' + data.bucket + '$', 'i')
         })
+
+        if (!bucket)
+          return res.json({ reply: 'Bucket not found.' })
+
+        await Task.create({
+          title: data.title,
+          bucketId: bucket._id
+        })
+
+        return res.json({ reply: ai.reply })
       }
 
-      if (!bucket) {
-        bucket = await Bucket.findOne().sort({ createdAt: -1 })
-      }
+      /* ========== ADD MEMBER ========== */
+      case 'add_member': {
+        if (!data.name)
+          return res.json({ reply: ai.reply })
 
-      if (!bucket) {
-        return res.json({ reply: 'Please create a bucket first.' })
-      }
-
-      const task = await Task.create({
-        title: taskName,
-        bucketId: bucket._id
-      })
-
-      ctx.lastTask = task.title
-      ctx.lastBucket = bucket.title
-
-      return res.json({
-        reply: `Task "${task.title}" added to "${bucket.title}" ✅`
-      })
-    }
-
-    /* ================= ADD MEMBER ================= */
-    if (ai.intent === 'add_member' || msg.includes('add member')) {
-      const name =
-        ai.member ||
-        message.replace(/add|member/gi, '').trim()
-
-      let user = await User.findOne({ name: new RegExp(name, 'i') })
-      if (!user) {
         await User.create({
-          name,
-          initials: name
-            .split(' ') 
+          name: data.name,
+          initials: data.name
+            .split(' ')
             .map(w => w[0])
             .join('')
             .toUpperCase(),
           avatarColor: 'bg-blue-500'
         })
+
+        return res.json({ reply: ai.reply })
       }
 
-      return res.json({ reply: `Member "${name}" added.` })
-    }
+      /* ========== DELETE ========== */
+      case 'delete': {
+        if (!data.type || !data.name)
+          return res.json({ reply: ai.reply })
 
-    /* ================= DELETE ================= */
-    if (msg.startsWith('delete') || msg.startsWith('remove')) {
-      const name = message.replace(/delete|remove/gi, '').trim()
+        let Model, field
 
-      const matches = []
+        if (data.type === 'task') { Model = Task; field = 'title' }
+        if (data.type === 'bucket') { Model = Bucket; field = 'title' }
+        if (data.type === 'board') { Model = Board; field = 'title' }
+        if (data.type === 'member') { Model = User; field = 'name' }
 
-      const board = await Board.findOne({ title: new RegExp(name, 'i') })
-      if (board) matches.push({ type: 'board', entity: board })
+        if (!Model)
+          return res.json({ reply: 'Invalid delete request.' })
 
-      const bucket = await Bucket.findOne({ title: new RegExp(name, 'i') })
-      if (bucket) matches.push({ type: 'bucket', entity: bucket })
-
-      const task = await Task.findOne({ title: new RegExp(name, 'i') })
-      if (task) matches.push({ type: 'task', entity: task })
-
-      const user = await User.findOne({ name: new RegExp(name, 'i') })
-      if (user) matches.push({ type: 'member', entity: user })
-
-      if (matches.length === 0)
-        return res.json({ reply: 'Nothing found to delete.' })
-
-      if (matches.length === 1) {
-        ctx.pendingDelete = matches[0]
-        return res.json({
-          reply: `Are you sure you want to delete this ${matches[0].type}? (yes/no)`
+        const doc = await Model.findOne({
+          [field]: new RegExp(data.name, 'i')
         })
+
+        if (!doc)
+          return res.json({ reply: 'Nothing found to delete.' })
+
+        ctx.lastDeleted = {
+          model: Model,
+          data: doc.toObject()
+        }
+
+        await Model.deleteOne({ _id: doc._id })
+
+        return res.json({ reply: ai.reply })
       }
 
-      ctx.pendingChoices = matches
-      return res.json({
-        reply:
-          'Please specify what you want to delete (board / bucket / task / member).'
-      })
+      /* ========== UNDO ========== */
+      case 'undo': {
+        if (!ctx.lastDeleted)
+          return res.json({ reply: 'Nothing to undo.' })
+
+        await ctx.lastDeleted.model.create(ctx.lastDeleted.data)
+        ctx.lastDeleted = null
+
+        return res.json({ reply: 'Undo successful ✅' })
+      }
+
+      /* ========== NORMAL CHAT / CLARIFICATION ========== */
+      case 'none':
+      default:
+        return res.json({ reply: ai.reply })
     }
 
-    /* ================= GREETING ================= */
-    if (msg === 'hi' || msg === 'hello') {
-      return res.json({
-        reply: 'Hi 👋 I can manage boards, buckets, tasks, and members.'
-      })
-    }
-
-    return res.json({ reply: 'Tell me what you want to do 🙂' })
   } catch (err) {
-    console.error(err)
-    return res.json({ reply: 'Something went wrong.' })
+    console.error('SERVER ERROR:', err.response?.data || err.message)
+    return res.json({ reply: 'Backend error. Please try again.' })
   }
 })
 
