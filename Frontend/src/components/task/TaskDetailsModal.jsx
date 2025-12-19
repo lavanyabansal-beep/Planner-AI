@@ -20,9 +20,24 @@ const TaskDetailsModal = ({ isOpen, onClose, task, users, onUpdate, onDelete }) 
     checklist: [],
     attachments: [],
     completed: false,
+    activityType: 'ONE_TIME',
+    estimatedDays: 0,
   });
   const [newChecklistItem, setNewChecklistItem] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [showNewActivityType, setShowNewActivityType] = useState(false);
+  const [newActivityType, setNewActivityType] = useState('');
+
+  // SprintView Chart Activity Types
+  const SPRINTVIEW_ACTIVITY_TYPES = {
+    ONE_TIME: { label: '🎯 One-Time', description: 'Standard task with fixed duration' },
+    CONTINUOUS: { label: '♾️ Continuous', description: 'Task that runs until project end' },
+    API_1_DAY: { label: '⚡ API / 1-Day', description: 'API integration (always 1 day)' },
+    RECURRING_WEEKLY: { label: '🔄 Recurring Weekly', description: 'Task that repeats weekly (1 day per week)' },
+    MILESTONE: { label: '🏁 Milestone', description: 'Zero-duration checkpoint' },
+    BUFFER: { label: '🛡️ Buffer', description: 'Risk padding (blocks owner availability)' },
+    PARALLEL_ALLOWED: { label: '🔀 Parallel Allowed', description: 'Can overlap with other tasks for same owner' }
+  };
 
   useEffect(() => {
     if (task) {
@@ -34,17 +49,23 @@ const TaskDetailsModal = ({ isOpen, onClose, task, users, onUpdate, onDelete }) 
         return userId;
       }).filter(Boolean);
 
+      // Auto-set start date to current date if not already set
+      const currentDate = new Date().toISOString().split('T')[0];
+      const startDateValue = task.startDate ? new Date(task.startDate).toISOString().split('T')[0] : currentDate;
+
       setFormData({
         title: task.title || '',
         description: task.description || '',
         assignedTo: populatedAssignedTo,
         priority: task.priority || 'medium',
         progress: task.progress || 'not_started',
-        startDate: task.startDate ? new Date(task.startDate).toISOString().split('T')[0] : '',
+        startDate: startDateValue,
         dueDate: task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : '',
         checklist: task.checklist || [],
         attachments: task.attachments || [],
         completed: task.completed || false,
+        activityType: task.activityType || 'ONE_TIME',
+        estimatedDays: task.estimatedDays || 0,
       });
     }
   }, [task, users]);
@@ -56,6 +77,8 @@ const TaskDetailsModal = ({ isOpen, onClose, task, users, onUpdate, onDelete }) 
         assignedTo: formData.assignedTo.map(u => u._id),
         startDate: formData.startDate || undefined,
         dueDate: formData.dueDate || undefined,
+        activityType: formData.activityType,
+        estimatedDays: parseFloat(formData.estimatedDays) || 0,
       });
       onClose();
     } catch (err) {
@@ -96,6 +119,8 @@ const TaskDetailsModal = ({ isOpen, onClose, task, users, onUpdate, onDelete }) 
       checklist: formData.checklist.filter((_, i) => i !== index),
     });
   };
+
+
 
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -198,6 +223,58 @@ const TaskDetailsModal = ({ isOpen, onClose, task, users, onUpdate, onDelete }) 
               <option value="in_progress">In Progress</option>
               <option value="completed">Completed</option>
             </select>
+          </div>
+        </div>
+
+        {/* Activity Type & Tentative ETA */}
+        <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-lg">
+              {SPRINTVIEW_ACTIVITY_TYPES[formData.activityType]?.label?.split(' ')[0] || '💻'}
+            </span>
+            <h3 className="font-semibold text-white">SprintView Chart Configuration</h3>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="activityType" className="form-label">Activity Type</label>
+              <select
+                id="activityType"
+                value={formData.activityType}
+                onChange={(e) => {
+                  setFormData({ ...formData, activityType: e.target.value });
+                }}
+                className="form-select w-full"
+              >
+                {Object.entries(SPRINTVIEW_ACTIVITY_TYPES).map(([key, config]) => (
+                  <option key={key} value={key}>
+                    {config.label}
+                  </option>
+                ))}
+              </select>
+              
+              {/* Activity Type Description */}
+              <div className="mt-2 text-xs text-gray-400">
+                {SPRINTVIEW_ACTIVITY_TYPES[formData.activityType]?.description}
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="estimatedDays" className="form-label">Tentative ETA (Days)</label>
+              <input
+                id="estimatedDays"
+                type="number"
+                min="0"
+                step="0.5"
+                value={formData.estimatedDays}
+                onChange={(e) => setFormData({ ...formData, estimatedDays: e.target.value })}
+                className="w-full px-3 py-2 bg-gray-900 border border-gray-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
+                placeholder="0"
+              />
+              <p className="mt-1 text-xs text-gray-400">
+                📊 Used for SprintView chart timeline calculation
+              </p>
+            </div>
           </div>
         </div>
 

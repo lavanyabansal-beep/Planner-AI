@@ -1,5 +1,12 @@
 const mongoose = require('mongoose')
 
+const SubtaskSchema = new mongoose.Schema({
+  text: String,
+  done: { type: Boolean, default: false },
+  dueDate: { type: Date },
+  assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+}, { _id: true })
+
 const ChecklistItemSchema = new mongoose.Schema({
   text: String,
   done: { type: Boolean, default: false }
@@ -23,6 +30,14 @@ const TaskSchema = new mongoose.Schema({
   startDate: { type: Date },
   dueDate: { type: Date },
   repeat: { type: String, default: 'does_not_repeat' },
+  
+  // Activity type for task management (SprintView chart)
+  activityType: { type: String, default: 'ONE_TIME' },
+  estimatedDays: { type: Number, default: 0 },
+  
+  // Subtasks
+  subtasks: [SubtaskSchema],
+  
   checklist: [ChecklistItemSchema],
   attachments: [AttachmentSchema],
   createdAt: { type: Date, default: Date.now },

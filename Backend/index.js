@@ -10,6 +10,7 @@ const Team = require('./models/Team')
 const Board = require('./models/Board')
 const Bucket = require('./models/Bucket')
 const Task = require('./models/Task')
+const { scheduleSprintViewTasks, expandRecurringTask, validateTasks, ACTIVITY_TYPES } = require('./utils/sprintviewScheduler')
 
 const app = express()
 app.use(cors({ origin: 'http://localhost:5174' }))
@@ -91,6 +92,37 @@ app.post('/api/boards', async (req, res) => {
 
     res.status(201).json({ board: b, buckets: createdBuckets, tasks: createdTasks });
   } catch (err) { res.status(400).json({ error: err.message }) }
+})
+
+app.delete('/api/boards/:boardId', async (req, res) => {
+  try {
+    const { boardId } = req.params;
+    
+    // Check if board exists
+    const board = await Board.findById(boardId);
+    if (!board) {
+      return res.status(404).json({ error: 'Board not found' });
+    }
+
+    // Find all buckets for this board
+    const buckets = await Bucket.find({ boardId });
+    const bucketIds = buckets.map(b => b._id);
+
+    // Delete all tasks in those buckets
+    if (bucketIds.length > 0) {
+      await Task.deleteMany({ bucketId: { $in: bucketIds } });
+    }
+
+    // Delete all buckets
+    await Bucket.deleteMany({ boardId });
+
+    // Delete the board
+    await Board.findByIdAndDelete(boardId);
+
+    res.json({ message: 'Board and all associated data deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 })
 
 // All buckets (optionally filter by boardId)
@@ -200,10 +232,163 @@ app.post('/api/uploads', upload.single('file'), (req, res) => {
   res.status(201).json(meta)
 })
 
+<<<<<<< HEAD
 //chatbot
 const chatbotRoutes = require('./chatbot')
 app.use('/api', chatbotRoutes)
  
+=======
+// --- SprintView Chart API ---
+/**
+ * POST /api/sprintview/schedule
+ * Schedule tasks using SprintView chart algorithm
+ * 
+ * Body: {
+ *   tasks: [
+ *     {
+ *       taskName: string,
+ *       tentativeEtaDays: number,
+ *       activityType: string,
+ *       taskOwner: string
+ *     }
+ *   ],
+ *   expandRecurring: boolean (optional)
+ * }
+ */
+app.post('/api/sprintview/schedule', (req, res) => {
+  try {
+    const { tasks, expandRecurring = false } = req.body;
+
+    // Validate input
+    const validation = validateTasks(tasks);
+    if (!validation.valid) {
+      return res.status(400).json({ 
+        error: 'Invalid task data', 
+        details: validation.errors 
+      });
+    }
+
+    // Normalize activity types (support both formats)
+    const normalizedTasks = tasks.map(task => ({
+      ...task,
+      activityType: task.activityType || 'ONE_TIME',
+      tentativeEtaDays: task.tentativeEtaDays || 1
+    }));
+
+    // Schedule tasks
+    const result = scheduleSprintViewTasks(normalizedTasks);
+
+    // Optionally expand recurring tasks
+    if (expandRecurring) {
+      const expandedTasks = [];
+      result.scheduledTasks.forEach(task => {
+        const occurrences = expandRecurringTask(task, result.totalProjectWeeks);
+        expandedTasks.push(...occurrences);
+      });
+      result.scheduledTasks = expandedTasks;
+    }
+
+    res.json(result);
+  } catch (err) {
+    console.error('SprintView scheduling error:', err);
+    res.status(500).json({ error: 'Scheduling failed', message: err.message });
+  }
+});
+
+/**
+ * POST /api/sprintview/schedule-from-board/:boardId
+ * Generate SprintView chart from existing board tasks
+ */
+app.post('/api/sprintview/schedule-from-board/:boardId', async (req, res) => {
+  try {
+    const { boardId } = req.params;
+    const { expandRecurring = false } = req.body;
+
+    // Fetch board with tasks
+    const board = await Board.findById(boardId).lean();
+    if (!board) {
+      return res.status(404).json({ error: 'Board not found' });
+    }
+
+    // Fetch all tasks for this board
+    const buckets = await Bucket.find({ boardId }).lean();
+    const bucketIds = buckets.map(b => b._id);
+    const tasks = await Task.find({ bucketId: { $in: bucketIds } })
+      .populate('assignedTo', 'name')
+      .lean();
+
+    if (tasks.length === 0) {
+      return res.json({
+        scheduledTasks: [],
+        totalProjectDays: 0,
+        totalProjectWeeks: 0,
+        message: 'No tasks found in board'
+      });
+    }
+
+    // Convert database tasks to SprintView format
+    const sprintviewTasks = tasks.map(task => {
+      const owner = task.assignedTo && task.assignedTo.length > 0 
+        ? task.assignedTo[0].name 
+        : 'Unassigned';
+      
+      return {
+        taskName: task.title,
+        tentativeEtaDays: task.estimatedDays || 1,
+        activityType: task.activityType || 'ONE_TIME',
+        taskOwner: owner,
+        taskId: task._id.toString(),
+        priority: task.priority,
+        dueDate: task.dueDate
+      };
+    });
+
+    // Schedule
+    const result = scheduleSprintViewTasks(sprintviewTasks);
+
+    // Expand recurring if requested
+    if (expandRecurring) {
+      const expandedTasks = [];
+      result.scheduledTasks.forEach(task => {
+        const occurrences = expandRecurringTask(task, result.totalProjectWeeks);
+        expandedTasks.push(...occurrences);
+      });
+      result.scheduledTasks = expandedTasks;
+    }
+
+    result.boardInfo = {
+      boardId: board._id,
+      boardName: board.name,
+      totalTasks: tasks.length
+    };
+
+    res.json(result);
+  } catch (err) {
+    console.error('Board SprintView scheduling error:', err);
+    res.status(500).json({ error: 'Scheduling failed', message: err.message });
+  }
+});
+
+/**
+ * GET /api/sprintview/activity-types
+ * Get list of supported activity types
+ */
+app.get('/api/sprintview/activity-types', (req, res) => {
+  res.json({
+    activityTypes: Object.values(ACTIVITY_TYPES),
+    descriptions: {
+      ONE_TIME: 'Standard task with fixed duration',
+      CONTINUOUS: 'Task that runs until project end',
+      API_1_DAY: 'API integration task (always 1 day)',
+      RECURRING_WEEKLY: 'Task that repeats weekly (1 day per week)',
+      MILESTONE: 'Zero-duration checkpoint',
+      BUFFER: 'Risk padding (blocks owner, rendered as dashed)',
+      PARALLEL_ALLOWED: 'Can overlap with other tasks for same owner'
+    }
+  });
+})
+
+>>>>>>> 5fc668ea648064ad056b0efd58adb8efdb01fdd4
 // fallback
 app.use((req,res) => res.status(404).json({ error: 'not found' }))
 

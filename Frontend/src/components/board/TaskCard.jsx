@@ -3,6 +3,64 @@ import { CSS } from '@dnd-kit/utilities';
 import AvatarGroup from '../common/AvatarGroup';
 import { formatDate, getPriorityColorDark } from '../../utils/helpers';
 
+// Activity Type Configuration
+const getActivityConfig = (activityType) => {
+  const type = (activityType || '').toUpperCase();
+  
+  // Match exact activity type constants from backend
+  const activityMap = {
+    'ONE_TIME': {
+      icon: '🎯',
+      color: 'bg-blue-500/20 text-blue-300 border-blue-500/40',
+      label: 'One-Time',
+      description: 'Standard task with fixed duration'
+    },
+    'CONTINUOUS': {
+      icon: '♾️',
+      color: 'bg-green-500/20 text-green-300 border-green-500/40',
+      label: 'Continuous',
+      description: 'Task that runs until project end'
+    },
+    'API_1_DAY': {
+      icon: '⚡',
+      color: 'bg-purple-500/20 text-purple-300 border-purple-500/40',
+      label: 'API/1-Day',
+      description: 'API integration (always 1 day)'
+    },
+    'RECURRING_WEEKLY': {
+      icon: '🔄',
+      color: 'bg-orange-500/20 text-orange-300 border-orange-500/40',
+      label: 'Recurring Weekly',
+      description: 'Task that repeats weekly'
+    },
+    'MILESTONE': {
+      icon: '🏁',
+      color: 'bg-gray-500/20 text-gray-300 border-gray-500/40',
+      label: 'Milestone',
+      description: 'Zero-duration checkpoint'
+    },
+    'BUFFER': {
+      icon: '🛡️',
+      color: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40',
+      label: 'Buffer',
+      description: 'Risk padding for schedule'
+    },
+    'PARALLEL_ALLOWED': {
+      icon: '🔀',
+      color: 'bg-pink-500/20 text-pink-300 border-pink-500/40',
+      label: 'Parallel Allowed',
+      description: 'Can overlap with other tasks'
+    }
+  };
+  
+  return activityMap[type] || {
+    icon: '💼',
+    color: 'bg-gray-500/20 text-gray-300 border-gray-500/40',
+    label: 'Task',
+    description: 'General task'
+  };
+};
+
 const TaskCard = ({ task, users = [], onClick, onToggleComplete }) => {
   // Populate assigned users with full user objects
   const populatedAssignedTo = (task.assignedTo || []).map(userId => {
@@ -30,6 +88,7 @@ const TaskCard = ({ task, users = [], onClick, onToggleComplete }) => {
   const hasChecklist = task.checklist && task.checklist.length > 0;
   const completedChecklist = task.checklist?.filter(item => item.done).length || 0;
   const totalChecklist = task.checklist?.length || 0;
+  const activityConfig = getActivityConfig(task.activityType);
 
   const handleCheckboxClick = (e) => {
     e.stopPropagation();
@@ -61,6 +120,19 @@ const TaskCard = ({ task, users = [], onClick, onToggleComplete }) => {
       className="bg-gradient-to-br from-gray-700 to-gray-700/80 backdrop-blur-sm rounded-xl border border-gray-600 p-4 hover:shadow-2xl hover:border-primary-500/50 hover:from-gray-700/90 hover:to-gray-700/70 transition-all duration-200 cursor-pointer group focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:ring-offset-gray-800"
     >
       <div className="space-y-3">
+        {/* Activity Type Badge */}
+        <div className="flex items-center gap-2 mb-2">
+          <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border ${activityConfig.color}`} title={activityConfig.description}>
+            <span>{activityConfig.icon}</span>
+            <span>{activityConfig.label}</span>
+          </span>
+          {task.estimatedDays > 0 && (
+            <span className="px-2 py-1 rounded-lg bg-gray-600/50 text-gray-300 text-xs font-medium" title="Estimated Duration">
+              {task.estimatedDays}d
+            </span>
+          )}
+        </div>
+
         {/* Title with Checkbox */}
         <div className="flex items-start gap-3">
           <input
