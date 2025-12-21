@@ -24,6 +24,9 @@ const Home = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [boardToDelete, setBoardToDelete] = useState(null);
   const [deletingBoard, setDeletingBoard] = useState(false);
+  
+  // Member filter state
+  const [selectedMemberId, setSelectedMemberId] = useState(null);
 
   const {
     board,
@@ -42,6 +45,25 @@ const Home = () => {
     getTasksByBucket,
     refetch,
   } = useBoard(selectedBoardId);
+
+  // Filter tasks by selected member
+  const filteredTasks = selectedMemberId
+    ? tasks.filter(task => 
+        task.assignedTo && task.assignedTo.some(userId => userId === selectedMemberId)
+      )
+    : tasks;
+
+  // Filter buckets to show only those with visible tasks (or all if no filter)
+  const visibleBucketIds = selectedMemberId
+    ? new Set(filteredTasks.map(t => t.bucketId))
+    : new Set(buckets.map(b => b._id));
+
+  const filteredBuckets = buckets.filter(b => visibleBucketIds.has(b._id));
+
+  // Filtered getTasksByBucket function
+  const getFilteredTasksByBucket = (bucketId) => {
+    return filteredTasks.filter(t => t.bucketId === bucketId);
+  };
 
   // Fetch all boards
   useEffect(() => {
@@ -201,6 +223,30 @@ const Home = () => {
 
             {/* Right section */}
             <div className="flex items-center gap-3">
+              {/* Member Filter Dropdown */}
+              <div className="relative">
+                <label htmlFor="member-filter" className="sr-only">Filter by member</label>
+                <select
+                  id="member-filter"
+                  value={selectedMemberId || ''}
+                  onChange={(e) => setSelectedMemberId(e.target.value || null)}
+                  className="bg-gray-700 border-gray-600 text-white rounded-lg px-3 py-2 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent appearance-none cursor-pointer"
+                  aria-label="Filter tasks by member"
+                >
+                  <option value="">All Members</option>
+                  {users.map(user => (
+                    <option key={user._id} value={user._id}>
+                      {user.name}
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                  <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                  </svg>
+                </div>
+              </div>
+
               <Button 
                 onClick={() => setShowSprintView(true)} 
                 variant="secondary" 
@@ -256,6 +302,32 @@ const Home = () => {
 
       {/* Main Content */}
       <main className="flex-1 overflow-hidden" role="main">
+        {/* Member Filter Banner */}
+        {selectedMemberId && (
+          <div className="bg-blue-600 text-white px-6 py-3 flex items-center justify-between shadow-md">
+            <div className="flex items-center gap-3">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+              </svg>
+              <span className="font-medium">
+                Filtered by: {users.find(u => u._id === selectedMemberId)?.name}
+              </span>
+              <span className="text-sm text-blue-100">
+                ({filteredTasks.length} {filteredTasks.length === 1 ? 'task' : 'tasks'})
+              </span>
+            </div>
+            <button
+              onClick={() => setSelectedMemberId(null)}
+              className="flex items-center gap-2 px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded-lg transition-colors text-sm font-medium"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              Clear Filter
+            </button>
+          </div>
+        )}
+
         {loading ? (
           <div className="h-full flex items-center justify-center">
             <div className="text-center space-y-4">
@@ -278,10 +350,29 @@ const Home = () => {
               </div>
             </div>
           </div>
+        ) : selectedMemberId && filteredTasks.length === 0 ? (
+          <div className="h-full flex items-center justify-center p-6">
+            <div className="text-center max-w-md space-y-4">
+              <div className="w-16 h-16 mx-auto bg-gray-700/50 rounded-2xl flex items-center justify-center">
+                <svg className="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-xl font-semibold text-white mb-2">No tasks found</h3>
+                <p className="text-gray-400">
+                  {users.find(u => u._id === selectedMemberId)?.name} has no assigned tasks in this board.
+                </p>
+              </div>
+              <Button onClick={() => setSelectedMemberId(null)} variant="secondary">
+                Show All Tasks
+              </Button>
+            </div>
+          </div>
         ) : (
           <BoardView
-            buckets={buckets}
-            tasks={tasks}
+            buckets={filteredBuckets}
+            tasks={filteredTasks}
             users={users}
             onCreateBucket={createBucket}
             onUpdateBucket={updateBucket}
@@ -290,7 +381,7 @@ const Home = () => {
             onUpdateTask={updateTask}
             onMoveTask={moveTask}
             onTaskClick={handleTaskClick}
-            getTasksByBucket={getTasksByBucket}
+            getTasksByBucket={getFilteredTasksByBucket}
           />
         )}
       </main>
@@ -316,6 +407,8 @@ const Home = () => {
         boardName={board?.title}
         isOpen={showSprintView}
         onClose={() => setShowSprintView(false)}
+        selectedMemberId={selectedMemberId}
+        selectedMemberName={selectedMemberId ? users.find(u => u._id === selectedMemberId)?.name : null}
       />
 
       <Modal isOpen={showCreateBoard} onClose={() => setShowCreateBoard(false)} title="Create Project" size="sm">

@@ -11,6 +11,7 @@ const Board = require('./models/Board')
 const Bucket = require('./models/Bucket')
 const Task = require('./models/Task')
 const { scheduleSprintViewTasks, expandRecurringTask, validateTasks, ACTIVITY_TYPES } = require('./utils/sprintviewScheduler')
+const { expandToUserDayView, expandToFlatGrid } = require('./utils/userDayExpander')
 
 const app = express()
 app.use(cors({ origin: 'http://localhost:5174' }))
@@ -321,20 +322,27 @@ app.post('/api/sprintview/schedule-from-board/:boardId', async (req, res) => {
     }
 
     // Convert database tasks to SprintView format
-    const sprintviewTasks = tasks.map(task => {
-      const owner = task.assignedTo && task.assignedTo.length > 0 
-        ? task.assignedTo[0].name 
-        : 'Unassigned';
+    // If task has multiple users, create separate task entries for each user
+    const sprintviewTasks = [];
+    tasks.forEach(task => {
+      const owners = task.assignedTo && task.assignedTo.length > 0 
+        ? task.assignedTo.map(user => user.name)
+        : ['Unassigned'];
       
-      return {
-        taskName: task.title,
-        tentativeEtaDays: task.estimatedDays || 1,
-        activityType: task.activityType || 'ONE_TIME',
-        taskOwner: owner,
-        taskId: task._id.toString(),
-        priority: task.priority,
-        dueDate: task.dueDate
-      };
+      // Create a separate task entry for each assigned user
+      owners.forEach(owner => {
+        sprintviewTasks.push({
+          taskName: task.title,
+          tentativeEtaDays: task.estimatedDays || 1,
+          activityType: task.activityType || 'ONE_TIME',
+          taskOwner: owner,
+          taskId: task._id.toString(),
+          priority: task.priority,
+          dueDate: task.dueDate,
+          isMultiUser: owners.length > 1,
+          allOwners: owners
+        });
+      });
     });
 
     // Schedule
@@ -381,6 +389,96 @@ app.get('/api/sprintview/activity-types', (req, res) => {
     }
   });
 })
+
+/**
+ * POST /api/sprintview/user-day-view
+ * Transform scheduled tasks into per-user, per-day occupancy grid
+ * 
+ * Body:
+ * - scheduledTasks: Array of scheduled tasks (from schedule endpoint)
+ * - totalProjectWeeks: Total project duration
+ * - format: 'nested' (default) or 'flat'
+ * 
+ * Response:
+ * - users: Array of user objects with day-level task allocation
+ * - weekGrid: Week structure for header rendering
+ * - dayGrid: Day structure for column headers
+ * - metadata: Stats and info
+ */
+app.post('/api/sprintview/user-day-view', (req, res) => {
+  try {
+    const { scheduledTasks, totalProjectWeeks, format = 'nested' } = req.body;
+
+    if (!scheduledTasks || !Array.isArray(scheduledTasks)) {
+      return res.status(400).json({ 
+        error: 'scheduledTasks array is required' 
+      });
+    }
+
+    if (!totalProjectWeeks || totalProjectWeeks <= 0) {
+      return res.status(400).json({ 
+        error: 'totalProjectWeeks must be positive' 
+      });
+    }
+
+    const result = format === 'flat' 
+      ? expandToFlatGrid(scheduledTasks, totalProjectWeeks)
+      : expandToUserDayView(scheduledTasks, totalProjectWeeks);
+
+    res.json(result);
+  } catch (error) {
+    console.error('User day view expansion error:', error);
+    res.status(500).json({ 
+      error: 'Failed to expand to user-day view',
+      message: error.message 
+    });
+  }
+});
+
+/**
+ * POST /api/sprintview/schedule-with-day-view
+ * Combined endpoint: Schedule tasks AND return user-day view
+ * 
+ * Body: Same as /api/sprintview/schedule
+ * 
+ * Response: 
+ * - schedule: Standard schedule output
+ * - userDayView: Per-user day-level grid
+ */
+app.post('/api/sprintview/schedule-with-day-view', (req, res) => {
+  try {
+    const { tasks } = req.body;
+
+    // Validate
+    const validation = validateTasks(tasks);
+    if (!validation.valid) {
+      return res.status(400).json({ 
+        error: 'Invalid tasks', 
+        details: validation.errors 
+      });
+    }
+
+    // Schedule
+    const scheduleResult = scheduleSprintViewTasks(tasks);
+
+    // Expand to user-day view
+    const userDayView = expandToUserDayView(
+      scheduleResult.scheduledTasks, 
+      scheduleResult.totalProjectWeeks
+    );
+
+    res.json({
+      schedule: scheduleResult,
+      userDayView
+    });
+  } catch (error) {
+    console.error('Combined schedule error:', error);
+    res.status(500).json({ 
+      error: 'Scheduling failed',
+      message: error.message 
+    });
+  }
+});
 
 // fallback
 app.use((req,res) => res.status(404).json({ error: 'not found' }))
