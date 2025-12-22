@@ -1,3 +1,4 @@
+
 const express = require('express')
 const axios = require('axios')
 
@@ -12,7 +13,17 @@ const router = express.Router()
    🧠 In-memory state (undo + context)
 ===================================================== */
 const memory = new Map()
+function pushHistory(ctx, role, content) {
+  if (!ctx.history) ctx.history = []
 
+  ctx.history.push({ role, content })
+
+  // keep last 10 messages only (prevent token explosion)
+  if (ctx.history.length > 10) {
+    ctx.history = ctx.history.slice(-10)
+  }
+}
+ 
 function getCtx(req) {
   if (!memory.has(req.ip)) memory.set(req.ip, {})
   return memory.get(req.ip)
@@ -21,15 +32,13 @@ function getCtx(req) {
 /* =====================================================
    🤖 PURE LLM BRAIN (FREE MODEL SAFE)
 ===================================================== */
-async function callLLM(message) {
-  const res = await axios.post(
-    'https://openrouter.ai/api/v1/chat/completions',
+async function callLLM(ctx, message) {
+
+  // 1️⃣ Build message list WITH conversation history
+  const messages = [
     {
-      model: 'openai/gpt-oss-20b:free',
-      messages: [
-        {
-          role: 'system',
-          content: `
+      role: 'system',
+      content: `
 You are an AI project management assistant.
 
 IMPORTANT TERMINOLOGY:
@@ -70,13 +79,25 @@ JSON FORMAT:
   "reply": "User-facing response using the word PROJECT"
 }
 `
-        },
-        { role: 'user', content: message }
-      ]
+    },
+
+    // 2️⃣ Previous conversation (for continuation)
+    ...(ctx.history || []),
+
+    // 3️⃣ Current user message
+    { role: 'user', content: message }
+  ]
+
+  // 4️⃣ Call OpenRouter
+  const res = await axios.post(
+    'https://openrouter.ai/api/v1/chat/completions',
+    {
+      model: 'openai/gpt-oss-20b:free',
+      messages
     },
     {
       headers: {
-        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY1}`,
+        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`, // ✅ FIXED
         'Content-Type': 'application/json',
         'HTTP-Referer': 'http://localhost:3000',
         'X-Title': 'Planner AI'
@@ -84,6 +105,7 @@ JSON FORMAT:
     }
   )
 
+  // 5️⃣ Parse response safely
   try {
     return JSON.parse(res.data.choices[0].message.content)
   } catch {
@@ -98,7 +120,8 @@ JSON FORMAT:
 /* =====================================================
    🚀 CHAT ROUTE
 ===================================================== */
-router.post('/chat', async (req, res) => {
+router.post('/', async (req, res) => {
+
   const message = req.body.message
   if (!message) return res.json({ reply: 'Empty message' })
 
@@ -110,7 +133,14 @@ router.post('/chat', async (req, res) => {
   }
 
   try {
-    const ai = await callLLM(message)
+    pushHistory(ctx, 'user', message)
+
+const ai = await callLLM(ctx, message)
+
+if (ai?.reply) {
+  pushHistory(ctx, 'assistant', ai.reply)
+}
+
     const action = ai.action || 'none'
     const data = ai.data || {}
 
