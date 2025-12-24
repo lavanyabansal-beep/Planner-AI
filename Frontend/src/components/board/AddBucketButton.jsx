@@ -6,17 +6,20 @@ const AddBucketButton = ({ onAdd }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [title, setTitle] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!title.trim()) return;
 
     setLoading(true);
+    setError('');
     try {
       await onAdd(title.trim());
       setTitle('');
       setIsAdding(false);
     } catch (err) {
+      setError(err?.message || 'Failed to add bucket');
       console.error('Failed to add bucket:', err);
     } finally {
       setLoading(false);
@@ -26,6 +29,7 @@ const AddBucketButton = ({ onAdd }) => {
   const handleCancel = () => {
     setTitle('');
     setIsAdding(false);
+    setError('');
   };
 
   if (!isAdding) {
@@ -55,6 +59,9 @@ const AddBucketButton = ({ onAdd }) => {
           disabled={loading}
           className="bg-gray-900 border-gray-600 text-white placeholder:text-gray-500"
         />
+        {error && (
+          <div className="text-red-400 text-xs font-medium mb-2">{error}</div>
+        )}
         <div className="flex gap-2">
           <Button type="submit" disabled={loading || !title.trim()} size="sm" className="flex-1">
             Add

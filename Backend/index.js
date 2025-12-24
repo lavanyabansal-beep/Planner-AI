@@ -14,8 +14,12 @@ const { scheduleSprintViewTasks, expandRecurringTask, validateTasks, ACTIVITY_TY
 const { expandToUserDayView, expandToFlatGrid } = require('./utils/userDayExpander')
 
 const app = express()
-app.use(cors({ origin: 'http://localhost:5174' }))
+app.use(cors({ origin: true } ))
 app.use(express.json())
+
+const chatbotRoutes = require('./chatbot')
+app.use('/api/chat', chatbotRoutes)
+
 
 // connect to Mongo
 connectDB()
@@ -360,7 +364,7 @@ app.post('/api/sprintview/schedule-from-board/:boardId', async (req, res) => {
 
     result.boardInfo = {
       boardId: board._id,
-      boardName: board.name,
+      boardName: board.title,
       totalTasks: tasks.length
     };
 

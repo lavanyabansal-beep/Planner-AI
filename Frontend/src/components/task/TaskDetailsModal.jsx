@@ -335,7 +335,13 @@ const TaskDetailsModal = ({ isOpen, onClose, task, users, onUpdate, onDelete }) 
                 className="flex-1 bg-gray-900 border-gray-600 text-white placeholder:text-gray-500"
                 ariaLabel="New checklist item"
               />
-              <Button type="submit" size="sm" disabled={!newChecklistItem.trim()}>
+              <Button
+                  type="submit"
+                  size="sm"
+                  disabled={!newChecklistItem.trim()}
+                  className="rounded-full w-10 h-10 flex items-center justify-center"
+                >
+
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
@@ -419,14 +425,32 @@ const TaskDetailsModal = ({ isOpen, onClose, task, users, onUpdate, onDelete }) 
 
         {/* Actions */}
         <div className="flex flex-col sm:flex-row justify-between gap-3 pt-4 border-t border-gray-700">
-          <Button onClick={handleDelete} variant="danger" fullWidth className="sm:w-auto">
+          <Button
+              onClick={handleDelete}
+              variant="danger"
+              fullWidth
+              className="sm:w-auto rounded-full px-6"
+            >
+
             Delete Task
           </Button>
           <div className="flex gap-3">
-            <Button onClick={onClose} variant="secondary" fullWidth className="sm:w-auto flex-1 sm:flex-initial">
+            <Button
+                onClick={onClose}
+                variant="secondary" 
+                fullWidth
+                className="sm:w-auto flex-1 sm:flex-initial rounded-full px-6"
+              >
+git
               Cancel
             </Button>
-            <Button onClick={handleSave} variant="primary" fullWidth className="sm:w-auto flex-1 sm:flex-initial">
+            <Button
+                onClick={handleSave}
+                variant="primary"
+                fullWidth
+                className="sm:w-auto flex-1 sm:flex-initial rounded-full px-6"
+              >
+
               Save Changes
             </Button>
           </div>
